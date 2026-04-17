@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
-import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp, setDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { TMTType, TestResult, UserProfile } from './types';
 import { TMTGame } from './components/TMTGame';
 import { analyzeTMTResult } from './lib/gemini';
@@ -23,14 +23,19 @@ import {
   CheckCircle2, 
   AlertTriangle,
   ChevronRight,
-  Info
+  Info,
+  Trash2,
+  HelpCircle,
+  UserCircle,
+  FileText,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [results, setResults] = useState<TestResult[]>([]);
-  const [view, setView] = useState<'home' | 'game' | 'training' | 'history'>('home');
+  const [view, setView] = useState<'home' | 'game' | 'training' | 'history' | 'profile' | 'help'>('home');
   const [activeTest, setActiveTest] = useState<{ type: TMTType; level?: number } | null>(null);
   const [analysis, setAnalysis] = useState<{ interpretation: string; recommendations: string[] } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -75,6 +80,15 @@ export default function App() {
     }, (e) => {
       handleFirestoreError(e, OperationType.LIST, 'results');
     });
+  };
+
+  const deleteResult = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'results', id));
+      toast.success('تم حذف النتيجة');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, 'results');
+    }
   };
 
   const handleLogin = async () => {
@@ -221,10 +235,19 @@ export default function App() {
               <History className="w-4 h-4" />
               السجل والتحليل
             </Button>
+            <Button 
+              variant={view === 'help' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('help')}
+              className="gap-2"
+            >
+              <HelpCircle className="w-4 h-4" />
+              تعليمات
+            </Button>
           </nav>
         </div>
         <div className="flex gap-5">
-          <div className="flex flex-col items-end">
+          <div className="flex flex-col items-end cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setView('profile')}>
             <span className="text-[10px] text-muted-foreground uppercase font-bold">المستخدم:</span>
             <p className="text-sm font-semibold">{user.displayName || (user.isAnonymous ? 'ضيف' : 'مستخدم')}</p>
           </div>
@@ -475,7 +498,7 @@ export default function App() {
                             <div className="text-[10px] text-muted-foreground">{res.timestamp?.toDate().toLocaleDateString('ar-EG')}</div>
                           </div>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 items-center">
                           <div className="text-center">
                             <div className="text-[10px] text-muted-foreground uppercase">الزمن</div>
                             <div className="text-sm font-bold">{res.timeInSeconds}s</div>
@@ -484,11 +507,127 @@ export default function App() {
                             <div className="text-[10px] text-muted-foreground uppercase">الأخطاء</div>
                             <div className="text-sm font-bold text-destructive">{res.errors}</div>
                           </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-muted-foreground hover:text-destructive h-8 w-8"
+                            onClick={() => deleteResult(res.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
+              </motion.div>
+            )}
+
+            {view === 'profile' && (
+              <motion.div 
+                key="profile"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-8 flex flex-col h-full items-center justify-center text-center max-w-lg mx-auto"
+              >
+                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6 ring-4 ring-primary/5">
+                  <UserCircle className="w-16 h-16" />
+                </div>
+                <h2 className="text-2xl font-bold mb-1">{user.displayName || 'مستخدم المنصة'}</h2>
+                <p className="text-muted-foreground mb-8">{user.email || 'حساب زائر'}</p>
+                
+                <div className="grid grid-cols-2 gap-4 w-full mb-8">
+                  <div className="p-4 bg-muted rounded-xl border border-border">
+                    <div className="text-2xl font-bold text-primary">{results.length}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">إجمالي الاختبارات</div>
+                  </div>
+                  <div className="p-4 bg-muted rounded-xl border border-border">
+                    <div className="text-2xl font-bold text-emerald-600">
+                      {results.filter(r => r.errors === 0).length}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">اختبارات بدون أخطاء</div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 w-full">
+                  <Button variant="outline" className="w-full gap-2 justify-start py-6" onClick={() => setView('history')}>
+                    <History className="w-4 h-4" />
+                    عرض سجل النتائج الكامل
+                  </Button>
+                  <Button variant="outline" className="w-full gap-2 justify-start py-6" onClick={() => setView('help')}>
+                    <HelpCircle className="w-4 h-4" />
+                    دليل الاستخدام والتعليمات
+                  </Button>
+                  <Button variant="destructive" className="w-full gap-2 py-6 mt-4" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4" />
+                    تسجيل الخروج
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {view === 'help' && (
+              <motion.div 
+                key="help"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="p-8 flex flex-col h-full overflow-y-auto"
+              >
+                <div className="mb-8 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">تعليمات ودليل المنصة</h2>
+                    <p className="text-muted-foreground italic text-sm underline decoration-primary/30 underline-offset-4">كيفية أداء اختبار تتبع المسار (TMT) بشكل صحيح.</p>
+                  </div>
+                  <Button variant="ghost" onClick={() => setView('home')}>العودة</Button>
+                </div>
+
+                <div className="space-y-8 max-w-2xl">
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                      ما هو اختبار تتبع المسار؟
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      يعد اختبار تتبع المسار (Trail Making Test) من أشهر الأدوات النفسية والعصبية لتقييم الوظائف التنفيذية. يتكون المقياس من جزئين أساسيين يقيسان مهارات ذهنية مختلفة تماماً.
+                    </p>
+                  </section>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="p-5 border border-blue-100 bg-blue-50/30 rounded-xl space-y-3">
+                      <h4 className="font-bold text-blue-700">الجزء (أ) - TMT-A</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        يُطلب من المفحوص توصيل دوائر تحتوي على أرقام (1-25) بترتيب تصاعدي. يقيس هذا الجزء سرعة المعالجة الحركية البصرية والانتباه المستمر.
+                      </p>
+                    </div>
+                    <div className="p-5 border border-purple-100 bg-purple-50/30 rounded-xl space-y-3">
+                      <h4 className="font-bold text-purple-700">الجزء (ب) - TMT-B</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        تحدي أكبر حيث يجب التناوب بين الأرقام والحروف (1-أ-2-ب...). يقيس هذا الجزء المرونة المعرفية والقدرة على تقسيم الانتباه وتغيير القواعد الذهنية.
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="space-y-3 pt-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                      نصائح للأداء الأفضل:
+                    </h3>
+                    <ul className="text-sm text-slate-600 space-y-3 list-none">
+                      <li className="flex gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span>احرص على إنهاء الاختبار بأسرع وقت ممكن وبأقل قدر من الأخطاء.</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span>في حال الخطأ، سيظهر وميض أحمر، عد للنقطة الصحيحة السابقة وأكمل المسار.</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span>استخدم التدريبات المتدرجة أولاً إذا كانت هذه تجربتك الأولى مع الاختبار.</span>
+                      </li>
+                    </ul>
+                  </section>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
