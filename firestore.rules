@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional, url format)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: results
+    // Document ID: {resultId}
+    // Fields:
+    //   - uid: string (required)
+    //   - testType: string (required, enum: TMT-A, TMT-B, TRAINING)
+    //   - level: int (optional)
+    //   - timeInSeconds: number (required, positive)
+    //   - errors: int (required, non-negative)
+    //   - timestamp: timestamp (required)
+    //   - rawPath: string (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Domain Validators
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             (data.email == null || isValidEmail(data.email)) &&
+             (data.displayName == null || data.displayName is string) &&
+             (data.photoURL == null || isValidUrl(data.photoURL));
+    }
+
+    function isValidResult(data) {
+      return data.uid == request.auth.uid &&
+             data.testType in ['TMT-A', 'TMT-B', 'TRAINING'] &&
+             data.timeInSeconds is number && data.timeInSeconds >= 0 &&
+             data.errors is int && data.errors >= 0 &&
+             data.timestamp is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && isValidUser(request.resource.data);
+    }
+
+    match /results/{resultId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidResult(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+  }
+}
