@@ -60,7 +60,7 @@ service cloud.firestore {
 
     function isValidResult(data) {
       return data.uid == request.auth.uid &&
-             data.testType in ['TMT-A', 'TMT-B', 'TRAINING'] &&
+             data.testType in ['TMT-A', 'TMT-B', 'TRAINING', 'TMT-B-AR', 'TMT-B-AR-TRAINING'] &&
              data.timeInSeconds is number && data.timeInSeconds >= 0 &&
              data.errors is int && data.errors >= 0 &&
              data.timestamp is timestamp;

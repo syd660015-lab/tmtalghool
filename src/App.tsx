@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously } from 'firebase/auth';
 import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp, setDoc, doc, deleteDoc } from 'firebase/firestore';
@@ -40,18 +40,27 @@ export default function App() {
   const [analysis, setAnalysis] = useState<{ interpretation: string; recommendations: string[] } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [trainingType, setTrainingType] = useState<'standard' | 'arabic'>('standard');
+  const resultsUnsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u) {
         syncUser(u);
-        fetchResults(u.uid);
+        if (resultsUnsubscribeRef.current) resultsUnsubscribeRef.current();
+        resultsUnsubscribeRef.current = fetchResults(u.uid);
       } else {
         setResults([]);
+        if (resultsUnsubscribeRef.current) {
+          resultsUnsubscribeRef.current();
+          resultsUnsubscribeRef.current = null;
+        }
       }
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (resultsUnsubscribeRef.current) resultsUnsubscribeRef.current();
+    };
   }, []);
 
   const syncUser = async (u: User) => {
@@ -196,6 +205,25 @@ export default function App() {
     <div className="min-h-screen bg-background font-sans flex flex-col" dir="rtl">
       <Toaster position="top-center" />
       
+      {/* Analysis Loading Overlay */}
+      <AnimatePresence>
+        {isAnalyzing && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-sm"
+          >
+            <div className="bg-white p-8 rounded-2xl shadow-2xl border border-primary/20 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <div>
+                <h3 className="text-xl font-bold text-primary">جاري تحليل النتائج...</h3>
+                <p className="text-sm text-muted-foreground mt-1">يتم الآن فحص الأداء باستخدام الذكاء الاصطناعي</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Header - Sleek Interface Style */}
       <header className="h-[70px] bg-white border-b border-border flex items-center justify-between px-10 shadow-sm shrink-0">
         <div className="flex items-center gap-8">

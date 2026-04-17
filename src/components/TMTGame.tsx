@@ -158,13 +158,19 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
   };
 
   useEffect(() => {
-    generatePoints();
+    // Small timeout to ensure container has dimensions
+    const timer = setTimeout(() => {
+      generatePoints();
+    }, 100);
+    
     return () => {
+      clearTimeout(timer);
       if (timerRef.current) window.clearInterval(timerRef.current);
     };
   }, [type, level]);
 
   const startTest = () => {
+    if (timerRef.current) window.clearInterval(timerRef.current);
     setStatus('running');
     setStartTime(Date.now());
     timerRef.current = window.setInterval(() => {
