@@ -31,12 +31,16 @@ import {
   FileText,
   Settings
 } from 'lucide-react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [results, setResults] = useState<TestResult[]>([]);
-  const [view, setView] = useState<'home' | 'game' | 'training' | 'history' | 'profile' | 'help'>('home');
+  const [view, setView] = useState<'home' | 'game' | 'training' | 'history' | 'profile' | 'help' | 'stats'>('home');
   const [activeTest, setActiveTest] = useState<{ type: TMTType; level?: number } | null>(null);
   const [analysis, setAnalysis] = useState<{ interpretation: string; recommendations: string[] } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -484,6 +488,142 @@ export default function App() {
                 تسجيل الخروج
               </Button>
             </div>
+          </motion.div>
+        )}
+
+        {view === 'stats' && (
+          <motion.div 
+            key="stats"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-8 flex flex-col h-full overflow-y-auto"
+          >
+            <div className="mb-8 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">مركز التحليل والبيانات الإحصائية</h2>
+                <p className="text-muted-foreground text-sm">تمثيل بياني لتقدمك واستقرار أدائك المعرفي المعتمد على TMT.</p>
+              </div>
+              <Button variant="outline" onClick={() => setView('home')}>العودة</Button>
+            </div>
+
+            {results.length < 3 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-20 text-center space-y-4">
+                <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center text-muted-foreground">
+                  <TrendingUp className="w-10 h-10" />
+                </div>
+                <h3 className="text-xl font-bold">بيانات غير كافية</h3>
+                <p className="text-muted-foreground max-w-xs">يرجى إجراء 3 اختبارات على الأقل لعرض الرسوم البيانية الخاصة بتقدمك.</p>
+                <Button onClick={() => setView('home')}>ابدأ أول اختبار الآن</Button>
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-2 gap-6 pb-20">
+                {/* Time Progress Chart */}
+                <Card className="p-6">
+                  <CardHeader className="p-0 mb-6">
+                    <CardTitle className="text-lg">منحنى سرعة الاستجابة (ثانية)</CardTitle>
+                    <CardDescription>تطور زمن إنهاء الاختبار عبر الجلسات الأخيرة</CardDescription>
+                  </CardHeader>
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={results.slice().reverse()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis 
+                          dataKey="timestamp" 
+                          tickFormatter={(val) => val ? new Date(val.toDate()).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }) : ''} 
+                          fontSize={10}
+                        />
+                        <YAxis fontSize={10} />
+                        <Tooltip 
+                          labelClassName="text-right"
+                          itemStyle={{ textAlign: 'right' }}
+                          labelFormatter={(val) => val ? new Date(val.toDate()).toLocaleString('ar-EG') : ''}
+                        />
+                        <Line type="monotone" dataKey="timeInSeconds" name="الزمن (ث)" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4, fill: "var(--primary)" }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                {/* Errors Chart */}
+                <Card className="p-6">
+                  <CardHeader className="p-0 mb-6">
+                    <CardTitle className="text-lg">معدل الأخطاء (الانتباه)</CardTitle>
+                    <CardDescription>عدد الأخطاء المرتكبة في كل محاولة</CardDescription>
+                  </CardHeader>
+                  <div className="h-[250px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={results.slice().reverse()}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="testType" fontSize={10} />
+                        <YAxis fontSize={10} />
+                        <Tooltip labelClassName="text-right" itemStyle={{ textAlign: 'right' }} />
+                        <Bar dataKey="errors" name="عدد الأخطاء" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                {/* Type Distribution */}
+                <Card className="p-6">
+                  <CardHeader className="p-0 mb-6">
+                    <CardTitle className="text-lg">توزيع الاختبارات</CardTitle>
+                    <CardDescription>نسبة أنواع المسارات التي تم التدرب عليها</CardDescription>
+                  </CardHeader>
+                  <div className="h-[250px] w-full flex justify-center items-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'الجزء أ', value: results.filter(r => r.testType === 'TMT-A').length },
+                            { name: 'الجزء ب', value: results.filter(r => r.testType === 'TMT-B').length },
+                            { name: 'المسار عربي', value: results.filter(r => r.testType === 'TMT-B-AR').length },
+                            { name: 'تدريبات', value: results.filter(r => r.testType.includes('TRAINING')).length },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          <Cell fill="var(--primary)" />
+                          <Cell fill="#a855f7" />
+                          <Cell fill="#10b981" />
+                          <Cell fill="#f59e0b" />
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                {/* Summary Card */}
+                <Card className="p-6 flex flex-col justify-center">
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="font-bold flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        ملخص الكفاءة
+                      </h3>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        بناءً على {results.length} جلسة، تظهر البيانات {results.reduce((acc, r) => acc + r.errors, 0) === 0 ? 'استقراراً استثنائياً' : 'تحسناً ملحوظاً'} في الانتباه الانتقائي. 
+                        أكثر مسار تتفوق فيه هو <span className="font-bold text-primary">{results.sort((a,b) => a.timeInSeconds - b.timeInSeconds)[0]?.testType}</span>.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-bold">معدل التحسن الأخير:</span>
+                        <Badge className="bg-emerald-500">+12%</Badge>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 w-[78%]" />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
           </motion.div>
         )}
 

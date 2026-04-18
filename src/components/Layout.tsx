@@ -10,14 +10,15 @@ import {
   HelpCircle, 
   LogOut, 
   User as UserIcon, 
-  UserCircle 
+  UserCircle,
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
 interface LayoutProps {
   user: User;
-  view: 'home' | 'game' | 'training' | 'history' | 'profile' | 'help';
+  view: 'home' | 'game' | 'training' | 'history' | 'profile' | 'help' | 'stats';
   setView: (view: any) => void;
   results: TestResult[];
   isAnalyzing: boolean;
@@ -101,7 +102,16 @@ export const Layout: React.FC<LayoutProps> = ({
               className="gap-2"
             >
               <History className="w-4 h-4" />
-              السجل والتحليل
+              السجل
+            </Button>
+            <Button 
+              variant={view === 'stats' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('stats')}
+              className="gap-2"
+            >
+              <TrendingUp className="w-4 h-4" />
+              التحليل والبيانات
             </Button>
             <Button 
               variant={view === 'help' ? 'secondary' : 'ghost'} 
@@ -125,99 +135,135 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-[280px_1fr_320px] gap-5 p-5 overflow-hidden">
+      <div className={cn(
+        "flex-1 gap-5 p-5 overflow-hidden transition-all duration-500",
+        view === 'game' ? "flex flex-col" : "grid grid-cols-[280px_1fr_320px]"
+      )}>
         {/* Left Sidebar */}
-        <aside className="bg-white rounded-xl border border-border p-5 flex flex-col gap-4 overflow-y-auto">
-          <h2 className="text-sm font-bold text-primary flex items-center gap-2 mb-2">
-            <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
-            المهارات المقاسة
-          </h2>
-          <div className="bg-background p-3 rounded-lg border border-border">
-            <h3 className="text-[10px] text-muted-foreground mb-1 font-bold uppercase">الجزء (أ) - TMT-A</h3>
-            <p className="text-sm font-semibold">الانتباه البصري، سرعة المعالجة الحركية</p>
-          </div>
-          <div className="bg-background p-3 rounded-lg border border-border">
-            <h3 className="text-[10px] text-muted-foreground mb-1 font-bold uppercase">الجزء (ب) - TMT-B</h3>
-            <p className="text-sm font-semibold">المرونة المعرفية، الذاكرة العاملة</p>
-          </div>
-          <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
-            <h3 className="text-[10px] text-primary mb-1 font-bold uppercase">المسار العربي - AR</h3>
-            <p className="text-sm font-semibold">تتبع الحروف الهجائية (أ-ب-ت...)</p>
-          </div>
-          
-          <h2 className="text-sm font-bold text-primary flex items-center gap-2 mt-4 mb-2">
-            <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
-            دلالات الأداء
-          </h2>
-          <ul className="text-xs text-muted-foreground space-y-2 list-none">
-            <li>• <b className="text-foreground">زمن طويل:</b> بطء في المعالجة</li>
-            <li>• <b className="text-foreground">أخطاء كثيرة:</b> ضعف في الانتباه</li>
-            <li>• <b className="text-foreground">فرق (أ) و (ب):</b> ضعف المرونة</li>
-          </ul>
+        <AnimatePresence>
+          {view !== 'game' && (
+            <motion.aside 
+              initial={{ x: 100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 100, opacity: 0 }}
+              className="bg-white rounded-xl border border-border p-5 flex flex-col gap-4 overflow-y-auto"
+            >
+              <h2 className="text-sm font-bold text-primary flex items-center gap-2 mb-2">
+                <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+                المهارات المقاسة (ابدأ الآن)
+              </h2>
+              <button 
+                className="bg-background p-3 rounded-lg border border-border text-right hover:border-primary/50 transition-colors group"
+                onClick={() => startTest('TMT-A')}
+              >
+                <h3 className="text-[10px] text-muted-foreground mb-1 font-bold uppercase group-hover:text-primary transition-colors">الجزء (أ) - TMT-A</h3>
+                <p className="text-sm font-semibold">الانتباه البصري والسرعة</p>
+              </button>
+              <button 
+                className="bg-background p-3 rounded-lg border border-border text-right hover:border-primary/50 transition-colors group"
+                onClick={() => startTest('TMT-B')}
+              >
+                <h3 className="text-[10px] text-muted-foreground mb-1 font-bold uppercase group-hover:text-primary transition-colors">الجزء (ب) - TMT-B</h3>
+                <p className="text-sm font-semibold">المرونة المعرفية الانتقالية</p>
+              </button>
+              <button 
+                className="bg-primary/5 p-3 rounded-lg border border-primary/20 text-right hover:border-primary/50 transition-colors group"
+                onClick={() => startTest('TMT-B-AR')}
+              >
+                <h3 className="text-[10px] text-primary mb-1 font-bold uppercase">المهارة العربية - AR</h3>
+                <p className="text-sm font-semibold">تتبع الحروف الهجائية المركبة</p>
+              </button>
+              
+              <h2 className="text-sm font-bold text-primary flex items-center gap-2 mt-4 mb-2">
+                <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+                دلالات الأداء
+              </h2>
+              <ul className="text-xs text-muted-foreground space-y-2 list-none">
+                <li>• <b className="text-foreground">زمن طويل:</b> بطء في المعالجة</li>
+                <li>• <b className="text-foreground">أخطاء كثيرة:</b> ضعف في الانتباه</li>
+                <li>• <b className="text-foreground">فرق (أ) و (ب):</b> ضعف المرونة</li>
+              </ul>
 
-          <div className="mt-auto pt-6 border-t border-border">
-            <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 text-center group transition-all hover:bg-primary/10">
-              <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                <UserIcon className="w-5 h-5 text-primary" />
+              <div className="mt-auto pt-6 border-t border-border">
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 text-center group transition-all hover:bg-primary/10">
+                  <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    <UserIcon className="w-5 h-5 text-primary" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">تصميم وبرمجة وإعداد</p>
+                  <h4 className="text-sm font-bold text-foreground">د. أحمد حمدي عاشور الغول</h4>
+                  <p className="text-[10px] text-primary font-bold mt-1">دكتوراه في علم النفس التربوي</p>
+                </div>
               </div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">تصميم وبرمجة وإعداد</p>
-              <h4 className="text-sm font-bold text-foreground">د. أحمد حمدي عاشور الغول</h4>
-              <p className="text-[10px] text-primary font-bold mt-1">دكتوراه في علم النفس التربوي</p>
-            </div>
-          </div>
-        </aside>
+            </motion.aside>
+          )}
+        </AnimatePresence>
 
         {/* Main Content Area */}
-        <main className="bg-white rounded-xl border border-border relative flex flex-col overflow-hidden">
+        <main className={cn(
+          "bg-white rounded-xl border border-border relative flex flex-col overflow-hidden transition-all duration-500 shadow-sm",
+          view === 'game' && "flex-1 rounded-none border-0"
+        )}>
           {children}
         </main>
 
         {/* Right Sidebar */}
-        <aside className="bg-white rounded-xl border border-border p-5 flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-primary flex items-center gap-2 mb-2">
-            <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
-            نتائج التحليل الإحصائي
-          </h2>
-          
-          <div className="flex-1 overflow-y-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-right py-2 font-normal text-muted-foreground">المسار</th>
-                  <th className="text-right py-2 font-normal text-muted-foreground">الزمن</th>
-                  <th className="text-right py-2 font-normal text-muted-foreground">الحالة</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.slice(0, 5).map((res, i) => (
-                  <tr key={i} className="border-b border-border/50">
-                    <td className="py-2 font-medium">
-                      {res.testType === 'TMT-B-AR' ? 'الجزء (ب) عربي' : 
-                       res.testType === 'TMT-B-AR-TRAINING' ? `تدريب عربي ${res.level}` : res.testType}
-                    </td>
-                    <td className="py-2">{res.timeInSeconds}ث</td>
-                    <td className="py-2">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-full text-[10px] font-bold",
-                        res.errors === 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                      )}>
-                        {res.errors === 0 ? 'طبيعي' : 'ضعف بسيط'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <AnimatePresence>
+          {view !== 'game' && (
+            <motion.aside 
+              initial={{ x: -100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -100, opacity: 0 }}
+              className="bg-white rounded-xl border border-border p-5 flex flex-col gap-4 overflow-y-auto"
+            >
+              <h2 className="text-sm font-bold text-primary flex items-center gap-2 mb-2">
+                <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+                نتائج التحليل الإحصائي
+              </h2>
+              
+              <div className="flex-1 overflow-y-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-right py-2 font-normal text-muted-foreground">المسار</th>
+                      <th className="text-right py-2 font-normal text-muted-foreground">الزمن</th>
+                      <th className="text-right py-2 font-normal text-muted-foreground">الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.slice(0, 5).map((res, i) => (
+                      <tr key={i} className="border-b border-border/50">
+                        <td className="py-2 font-medium">
+                          {res.testType === 'TMT-B-AR' ? 'الجزء (ب) عربي' : 
+                           res.testType === 'TMT-B-AR-TRAINING' ? `تدريب عربي ${res.level}` : res.testType}
+                        </td>
+                        <td className="py-2">{res.timeInSeconds}ث</td>
+                        <td className="py-2">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                            res.errors === 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                          )}>
+                            {res.errors === 0 ? 'طبيعي' : 'ضعف بسيط'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          <div className="bg-secondary p-4 rounded-xl border border-primary/20 mt-auto">
-            <h3 className="text-[10px] text-primary font-bold uppercase mb-1">المؤشر المركب (CTMT Index)</h3>
-            <p className="text-3xl font-bold text-primary">
-              {results.length > 0 ? (results.reduce((acc, r) => acc + r.timeInSeconds, 0) / results.length).toFixed(1) : '0.0'}
-            </p>
-            <span className="text-[10px] font-bold text-primary/80">نطاق الأداء: متوسط (طبيعي)</span>
-          </div>
-        </aside>
+              <div className="bg-secondary p-4 rounded-xl border border-primary/20 mt-auto cursor-pointer hover:bg-secondary/80 transition-colors" onClick={() => setView('stats')}>
+                <h3 className="text-[10px] text-primary font-bold uppercase mb-1">المؤشر المركب (CTMT Index)</h3>
+                <p className="text-3xl font-bold text-primary">
+                  {results.length > 0 ? (results.reduce((acc, r) => acc + r.timeInSeconds, 0) / results.length).toFixed(1) : '0.0'}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-primary/80">انقر لعرض الرسوم البيانية</span>
+                  <TrendingUp className="w-3 h-3 text-primary" />
+                </div>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Footer */}
