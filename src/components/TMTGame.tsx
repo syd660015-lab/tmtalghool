@@ -28,9 +28,12 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
   const generatePoints = () => {
     if (!containerRef.current) return;
     const { width, height } = containerRef.current.getBoundingClientRect();
-    const padding = 40;
-    const availableWidth = width - padding * 2;
-    const availableHeight = height - padding * 2;
+    if (width < 200 || height < 200) return; // Wait for reasonable layout size
+
+    const padding = 50;
+    const availableWidth = Math.max(100, width - padding * 2);
+    const availableHeight = Math.max(100, height - padding * 2);
+    const minDistance = 45; // Minimum distance between points
 
     let labels: { label: string; type: 'number' | 'letter'; order: number }[] = [];
 
@@ -131,22 +134,32 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
     const usedCells = new Set<string>();
 
     labels.forEach((item, index) => {
-      let r, c, cellKey;
+      let r, c, cellKey, x, y;
+      let attempts = 0;
+      
       do {
         r = Math.floor(Math.random() * gridSize);
         c = Math.floor(Math.random() * gridSize);
         cellKey = `${r}-${c}`;
+        attempts++;
+        
+        // Safety break to prevent infinite loop in extreme layouts
+        if (attempts > 100) break;
       } while (usedCells.has(cellKey));
       
       usedCells.add(cellKey);
+
+      // Add a bit of jitter within the cell
+      x = padding + c * cellWidth + Math.random() * (cellWidth - minDistance) + minDistance / 2;
+      y = padding + r * cellHeight + Math.random() * (cellHeight - minDistance) + minDistance / 2;
 
       newPoints.push({
         id: index,
         label: item.label,
         type: item.type,
         order: item.order,
-        x: padding + c * cellWidth + Math.random() * (cellWidth - 30) + 15,
-        y: padding + r * cellHeight + Math.random() * (cellHeight - 30) + 15,
+        x,
+        y,
       });
     });
 
@@ -238,10 +251,16 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
 
       <Card 
         ref={containerRef}
-        className="flex-1 relative bg-white overflow-hidden cursor-crosshair border-0 rounded-none"
+        className="flex-1 relative bg-white overflow-hidden cursor-crosshair border-0 rounded-none shadow-inner"
       >
         {/* Grid Background */}
-        <div className="absolute inset-0 opacity-50" style={{ backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+        
+        {points.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <RefreshCcw className="w-8 h-8 text-primary/20 animate-spin" />
+          </div>
+        )}
 
         {status === 'idle' && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-[2px]">

@@ -121,7 +121,7 @@ export default function App() {
   const handleLogout = () => signOut(auth);
 
   const saveResult = async (time: number, errors: number) => {
-    if (!user || !activeTest) return;
+    if (!user || !activeTest || isAnalyzing) return;
 
     const result: TestResult = {
       uid: user.uid,
@@ -392,7 +392,10 @@ export default function App() {
                   type={activeTest.type} 
                   level={activeTest.level}
                   onComplete={saveResult}
-                  onCancel={() => setView('home')}
+                  onCancel={() => {
+                    setView('home');
+                    setActiveTest(null);
+                  }}
                 />
               </motion.div>
             )}
