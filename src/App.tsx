@@ -182,12 +182,14 @@ export default function App() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3 p-8 pt-0">
-            <Button onClick={handleLogin} className="w-full py-7 text-lg rounded-xl shadow-lg shadow-primary/20" size="lg">
-              <UserIcon className="ml-2 w-5 h-5" />
-              تسجيل الدخول بجوجل
+            <Button onClick={handleGuestLogin} className="w-full py-7 text-lg rounded-xl shadow-lg shadow-primary/20" size="lg">
+              <Play className="ml-2 w-5 h-5" />
+              ابدأ الاختبار الآن
             </Button>
-            <Button onClick={handleGuestLogin} variant="outline" className="w-full py-7 text-lg rounded-xl border-2" size="lg">
-              الدخول كضيف (تجربة سريعة)
+            
+            <Button onClick={handleLogin} variant="outline" className="w-full py-6 text-sm rounded-xl border-2 border-dashed" size="sm">
+              <UserIcon className="ml-2 w-4 h-4 text-muted-foreground" />
+              تسجيل الدخول بجوجل (لحفظ النتائج دائمًا)
             </Button>
             
             <div className="mt-8 pt-6 border-t border-border w-full text-center">
