@@ -4,7 +4,6 @@ import { signInWithPopup, onAuthStateChanged, User, signOut, signInAnonymously }
 import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { TMTType, TestResult, UserProfile } from './types';
 import { TMTGame } from './components/TMTGame';
-import Layout from './components/Layout';
 import { analyzeTMTResult } from './lib/gemini';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card';
@@ -31,16 +30,12 @@ import {
   FileText,
   Settings
 } from 'lucide-react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
-  PieChart, Pie, Cell, Legend
-} from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [results, setResults] = useState<TestResult[]>([]);
-  const [view, setView] = useState<'home' | 'game' | 'training' | 'history' | 'profile' | 'help' | 'stats'>('home');
+  const [view, setView] = useState<'home' | 'game' | 'training' | 'history' | 'profile' | 'help'>('home');
   const [activeTest, setActiveTest] = useState<{ type: TMTType; level?: number } | null>(null);
   const [analysis, setAnalysis] = useState<{ interpretation: string; recommendations: string[] } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -187,14 +182,12 @@ export default function App() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3 p-8 pt-0">
-            <Button onClick={handleGuestLogin} className="w-full py-7 text-lg rounded-xl shadow-lg shadow-primary/20" size="lg">
-              <Play className="ml-2 w-5 h-5" />
-              ابدأ الاختبار الآن
+            <Button onClick={handleLogin} className="w-full py-7 text-lg rounded-xl shadow-lg shadow-primary/20" size="lg">
+              <UserIcon className="ml-2 w-5 h-5" />
+              تسجيل الدخول بجوجل
             </Button>
-            
-            <Button onClick={handleLogin} variant="outline" className="w-full py-6 text-sm rounded-xl border-2 border-dashed" size="sm">
-              <UserIcon className="ml-2 w-4 h-4 text-muted-foreground" />
-              تسجيل الدخول بجوجل (لحفظ النتائج دائمًا)
+            <Button onClick={handleGuestLogin} variant="outline" className="w-full py-7 text-lg rounded-xl border-2" size="lg">
+              الدخول كضيف (تجربة سريعة)
             </Button>
             
             <div className="mt-8 pt-6 border-t border-border w-full text-center">
@@ -209,489 +202,588 @@ export default function App() {
   }
 
   return (
-    <Layout
-      user={user}
-      view={view}
-      setView={setView}
-      results={results}
-      isAnalyzing={isAnalyzing}
-      trainingType={trainingType}
-      setTrainingType={setTrainingType}
-      startTest={startTest}
-      activeTest={activeTest}
-      handleLogout={handleLogout}
-    >
+    <div className="min-h-screen bg-background font-sans flex flex-col" dir="rtl">
       <Toaster position="top-center" />
       
-      <AnimatePresence mode="wait">
-        {view === 'home' && (
+      {/* Analysis Loading Overlay */}
+      <AnimatePresence>
+        {isAnalyzing && (
           <motion.div 
-            key="home"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="p-8 flex flex-col items-center justify-center h-full text-center space-y-8"
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-sm"
           >
-            <div className="max-w-md space-y-4">
-              <Brain className="w-20 h-20 text-primary mx-auto opacity-20" />
-              <h2 className="text-3xl font-bold text-foreground">مرحباً بك في منصة التقييم</h2>
-              <p className="text-muted-foreground">اختر نوع الاختبار للبدء في تقييم الوظائف التنفيذية أو ابدأ التدريب المتدرج من الأسفل.</p>
-            </div>
-            <div className="flex gap-4">
-              <Button size="lg" className="px-8 py-6 text-lg" onClick={() => startTest('TMT-A')}>ابدأ الجزء (أ)</Button>
-              <Button size="lg" variant="secondary" className="px-8 py-6 text-lg" onClick={() => startTest('TMT-B')}>ابدأ الجزء (ب)</Button>
-            </div>
-
-            <div className="pt-8 border-t border-border w-full flex flex-col items-center">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">قسم خاص: مسارات الاختبار العربية</h3>
-              <div className="flex gap-4">
-                <Button variant="outline" size="lg" className="px-8 py-6 border-2 border-primary/20 hover:border-primary/50 hover:bg-primary/5 group" onClick={() => startTest('TMT-B-AR')}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-white transition-colors">أ</div>
-                    <div className="text-right">
-                      <div className="font-bold">الجزء (ب) بالعربية</div>
-                      <div className="text-[10px] text-muted-foreground uppercase">أرقام وحروف عربية</div>
-                    </div>
-                  </div>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className={cn(
-                    "px-8 py-6 border-2 transition-all",
-                    trainingType === 'arabic' ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-border hover:border-emerald-200"
-                  )}
-                  onClick={() => setTrainingType(trainingType === 'arabic' ? 'standard' : 'arabic')}
-                >
-                  <div className="flex items-center gap-3">
-                    <GraduationCap className={cn("w-6 h-6", trainingType === 'arabic' ? "text-emerald-600" : "text-muted-foreground")} />
-                    <div className="text-right">
-                      <div className="font-bold">تفعيل تدريب المسار العربي</div>
-                      <div className="text-[10px] uppercase">تغيير مستويات التدريب بالأسفل</div>
-                    </div>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {view === 'game' && activeTest && (
-          <motion.div 
-            key="game"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex-1 flex flex-col"
-          >
-            <TMTGame 
-              type={activeTest.type} 
-              level={activeTest.level}
-              onComplete={saveResult}
-              onCancel={() => {
-                setView('home');
-                setActiveTest(null);
-              }}
-            />
-          </motion.div>
-        )}
-
-        {view === 'training' && (
-          <motion.div 
-            key="training"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-8 flex flex-col h-full overflow-y-auto"
-          >
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold mb-2">مركز التدريب المتدرج</h2>
-              <p className="text-muted-foreground">قم ببناء مهارات التتبع البصري والمرونة الذهنية خطوة بخطوة.</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Standard Training */}
-              <div className="space-y-4">
-                <h3 className="font-bold flex items-center gap-2 text-primary">
-                  <div className="w-2 h-6 bg-primary rounded-full" />
-                  التدريب القياسي (Standard)
-                </h3>
-                <div className="grid gap-3">
-                  {[1, 2, 3, 4, 5].map((lvl) => (
-                    <Card key={lvl} className="hover:border-primary/50 transition-colors cursor-pointer group" onClick={() => startTest('TRAINING', lvl)}>
-                      <CardHeader className="p-4 space-y-0 flex flex-row items-center justify-between">
-                        <div>
-                          <div className="text-[10px] font-bold text-primary uppercase">مستوى {lvl}</div>
-                          <CardTitle className="text-base">
-                            {lvl === 1 ? 'تتبع أرقام بسيطة' : 
-                             lvl === 2 ? 'سرعة المعالجة البصرية' :
-                             lvl === 3 ? 'التناوب العقلي الشامل' :
-                             lvl === 4 ? 'التفكير المرن المتقدم' : 'المهام التنفيذية المركبة'}
-                          </CardTitle>
-                          <CardDescription>
-                            {lvl === 1 ? 'توصيل من 1 إلى 10' : 
-                             lvl === 2 ? 'توصيل من 1 إلى 20 بتركيز عالٍ' :
-                             lvl === 3 ? 'التناوب بين الأرقام والحروف ABCD' :
-                             lvl === 4 ? 'تغيير القواعد والمسارات' : 'تحدي المتاهات المعقدة'}
-                          </CardDescription>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-[-4px]" />
-                      </CardHeader>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              {/* Arabic Training */}
-              <div className="space-y-4">
-                <h3 className="font-bold flex items-center gap-2 text-emerald-600">
-                  <div className="w-2 h-6 bg-emerald-600 rounded-full" />
-                  التدريب العربي (Arabic Path)
-                </h3>
-                <div className="grid gap-3">
-                  {[1, 2, 3, 4, 5].map((lvl) => (
-                    <Card key={lvl} className="hover:border-emerald-500/50 transition-colors cursor-pointer group border-emerald-100" onClick={() => startTest('TMT-B-AR-TRAINING', lvl)}>
-                      <CardHeader className="p-4 space-y-0 flex flex-row items-center justify-between">
-                        <div>
-                          <div className="text-[10px] font-bold text-emerald-600 uppercase">تدريب عربي {lvl}</div>
-                          <CardTitle className="text-base text-emerald-950">
-                            {lvl === 1 ? 'بداية المسار الهجائي' : 
-                             lvl === 2 ? 'تكامل الأرقام والحروف' :
-                             lvl === 3 ? 'التناوب الهجائي المركز' :
-                             lvl === 4 ? 'المرونة اللغوية الذهنية' : 'إتقان الإدراك الهجائي'}
-                          </CardTitle>
-                          <CardDescription>
-                            {lvl === 1 ? 'توصيل من 1 إلى أ' : 
-                             lvl === 2 ? 'تسلسل تصاعدي حتى حرف ج' :
-                             lvl === 3 ? 'مناورة سريعة حتى حرف خ' :
-                             lvl === 4 ? 'تركيز معقد حتى حرف ذ' : 'إتقان كامل للمسار العربي'}
-                          </CardDescription>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-emerald-600 transition-transform group-hover:translate-x-[-4px]" />
-                      </CardHeader>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {view === 'history' && (
-          <motion.div 
-            key="history"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="p-6 flex flex-col h-full"
-          >
-            {analysis && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6 shrink-0">
-                <h3 className="text-primary font-bold flex items-center gap-2 mb-3">
-                  <TrendingUp className="w-5 h-5" />
-                  تحليل الأداء الذكي
-                </h3>
-                <p className="text-sm text-slate-800 mb-4 leading-relaxed">{analysis.interpretation}</p>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.recommendations.map((rec, i) => (
-                    <Badge key={i} variant="secondary" className="bg-white border-blue-200 text-blue-700">{rec}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg">سجل النتائج الأخير</h3>
-              <Button variant="ghost" size="sm" onClick={() => setView('home')}>العودة</Button>
-            </div>
-
-            <ScrollArea className="flex-1 -mx-2 px-2">
-              <div className="space-y-3">
-                {results.map((res, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border border-border rounded-lg bg-background/50">
-                    <div className="flex items-center gap-3">
-                      <Badge className={cn(
-                        res.testType === 'TMT-A' ? "bg-blue-500" :
-                        res.testType === 'TMT-B' ? "bg-purple-500" : 
-                        res.testType === 'TMT-B-AR' ? "bg-emerald-500" : 
-                        res.testType === 'TMT-B-AR-TRAINING' ? "bg-teal-500" : "bg-orange-500"
-                      )}>
-                        {res.testType === 'TMT-A' ? 'A' : res.testType === 'TMT-B' ? 'B' : res.testType === 'TMT-B-AR' ? 'AR' : res.testType === 'TMT-B-AR-TRAINING' ? 'ت-ع' : 'T'}
-                      </Badge>
-                      <div>
-                        <div className="text-sm font-bold">
-                          {res.testType === 'TRAINING' ? `تدريب - مستوى ${res.level}` : 
-                           res.testType === 'TMT-B-AR-TRAINING' ? `تدريب عربي - مستوى ${res.level}` :
-                           res.testType === 'TMT-B-AR' ? 'الجزء (ب) - مسار عربي' : res.testType}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">{res.timestamp?.toDate().toLocaleDateString('ar-EG')}</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-4 items-center">
-                      <div className="text-center">
-                        <div className="text-[10px] text-muted-foreground uppercase">الزمن</div>
-                        <div className="text-sm font-bold">{res.timeInSeconds}s</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-[10px] text-muted-foreground uppercase">الأخطاء</div>
-                        <div className="text-sm font-bold text-destructive">{res.errors}</div>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-muted-foreground hover:text-destructive h-8 w-8"
-                        onClick={() => deleteResult(res.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </motion.div>
-        )}
-
-        {view === 'profile' && (
-          <motion.div 
-            key="profile"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="p-8 flex flex-col h-full items-center justify-center text-center max-w-lg mx-auto"
-          >
-            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6 ring-4 ring-primary/5">
-              <UserCircle className="w-16 h-16" />
-            </div>
-            <h2 className="text-2xl font-bold mb-1">{user.displayName || 'مستخدم المنصة'}</h2>
-            <p className="text-muted-foreground mb-8">{user.email || 'حساب زائر'}</p>
-            
-            <div className="grid grid-cols-2 gap-4 w-full mb-8">
-              <div className="p-4 bg-muted rounded-xl border border-border">
-                <div className="text-2xl font-bold text-primary">{results.length}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-bold">إجمالي الاختبارات</div>
-              </div>
-              <div className="p-4 bg-muted rounded-xl border border-border">
-                <div className="text-2xl font-bold text-emerald-600">
-                  {results.filter(r => r.errors === 0).length}
-                </div>
-                <div className="text-[10px] text-muted-foreground uppercase font-bold">اختبارات بدون أخطاء</div>
-              </div>
-            </div>
-
-            <div className="space-y-3 w-full">
-              <Button variant="outline" className="w-full gap-2 justify-start py-6" onClick={() => setView('history')}>
-                <History className="w-4 h-4" />
-                عرض سجل النتائج الكامل
-              </Button>
-              <Button variant="outline" className="w-full gap-2 justify-start py-6" onClick={() => setView('help')}>
-                <HelpCircle className="w-4 h-4" />
-                دليل الاستخدام والتعليمات
-              </Button>
-              <Button variant="destructive" className="w-full gap-2 py-6 mt-4" onClick={handleLogout}>
-                <LogOut className="w-4 h-4" />
-                تسجيل الخروج
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {view === 'stats' && (
-          <motion.div 
-            key="stats"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-8 flex flex-col h-full overflow-y-auto"
-          >
-            <div className="mb-8 flex justify-between items-center">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl border border-primary/20 flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
               <div>
-                <h2 className="text-2xl font-bold mb-1">مركز التحليل والبيانات الإحصائية</h2>
-                <p className="text-muted-foreground text-sm">تمثيل بياني لتقدمك واستقرار أدائك المعرفي المعتمد على TMT.</p>
+                <h3 className="text-xl font-bold text-primary">جاري تحليل النتائج...</h3>
+                <p className="text-sm text-muted-foreground mt-1">يتم الآن فحص الأداء باستخدام الذكاء الاصطناعي</p>
               </div>
-              <Button variant="outline" onClick={() => setView('home')}>العودة</Button>
-            </div>
-
-            {results.length < 3 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-20 text-center space-y-4">
-                <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center text-muted-foreground">
-                  <TrendingUp className="w-10 h-10" />
-                </div>
-                <h3 className="text-xl font-bold">بيانات غير كافية</h3>
-                <p className="text-muted-foreground max-w-xs">يرجى إجراء 3 اختبارات على الأقل لعرض الرسوم البيانية الخاصة بتقدمك.</p>
-                <Button onClick={() => setView('home')}>ابدأ أول اختبار الآن</Button>
-              </div>
-            ) : (
-              <div className="grid lg:grid-cols-2 gap-6 pb-20">
-                {/* Time Progress Chart */}
-                <Card className="p-6">
-                  <CardHeader className="p-0 mb-6">
-                    <CardTitle className="text-lg">منحنى سرعة الاستجابة (ثانية)</CardTitle>
-                    <CardDescription>تطور زمن إنهاء الاختبار عبر الجلسات الأخيرة</CardDescription>
-                  </CardHeader>
-                  <div className="h-[250px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={results.slice().reverse()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis 
-                          dataKey="timestamp" 
-                          tickFormatter={(val) => val ? new Date(val.toDate()).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }) : ''} 
-                          fontSize={10}
-                        />
-                        <YAxis fontSize={10} />
-                        <Tooltip 
-                          labelClassName="text-right"
-                          itemStyle={{ textAlign: 'right' }}
-                          labelFormatter={(val) => val ? new Date(val.toDate()).toLocaleString('ar-EG') : ''}
-                        />
-                        <Line type="monotone" dataKey="timeInSeconds" name="الزمن (ث)" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4, fill: "var(--primary)" }} activeDot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                {/* Errors Chart */}
-                <Card className="p-6">
-                  <CardHeader className="p-0 mb-6">
-                    <CardTitle className="text-lg">معدل الأخطاء (الانتباه)</CardTitle>
-                    <CardDescription>عدد الأخطاء المرتكبة في كل محاولة</CardDescription>
-                  </CardHeader>
-                  <div className="h-[250px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={results.slice().reverse()}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="testType" fontSize={10} />
-                        <YAxis fontSize={10} />
-                        <Tooltip labelClassName="text-right" itemStyle={{ textAlign: 'right' }} />
-                        <Bar dataKey="errors" name="عدد الأخطاء" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                {/* Type Distribution */}
-                <Card className="p-6">
-                  <CardHeader className="p-0 mb-6">
-                    <CardTitle className="text-lg">توزيع الاختبارات</CardTitle>
-                    <CardDescription>نسبة أنواع المسارات التي تم التدرب عليها</CardDescription>
-                  </CardHeader>
-                  <div className="h-[250px] w-full flex justify-center items-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'الجزء أ', value: results.filter(r => r.testType === 'TMT-A').length },
-                            { name: 'الجزء ب', value: results.filter(r => r.testType === 'TMT-B').length },
-                            { name: 'المسار عربي', value: results.filter(r => r.testType === 'TMT-B-AR').length },
-                            { name: 'تدريبات', value: results.filter(r => r.testType.includes('TRAINING')).length },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          <Cell fill="var(--primary)" />
-                          <Cell fill="#a855f7" />
-                          <Cell fill="#10b981" />
-                          <Cell fill="#f59e0b" />
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                {/* Summary Card */}
-                <Card className="p-6 flex flex-col justify-center">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="font-bold flex items-center gap-2 mb-2">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        ملخص الكفاءة
-                      </h3>
-                      <p className="text-sm text-slate-600 leading-relaxed">
-                        بناءً على {results.length} جلسة، تظهر البيانات {results.reduce((acc, r) => acc + r.errors, 0) === 0 ? 'استقراراً استثنائياً' : 'تحسناً ملحوظاً'} في الانتباه الانتقائي. 
-                        أكثر مسار تتفوق فيه هو <span className="font-bold text-primary">{results.sort((a,b) => a.timeInSeconds - b.timeInSeconds)[0]?.testType}</span>.
-                      </p>
-                    </div>
-                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold">معدل التحسن الأخير:</span>
-                        <Badge className="bg-emerald-500">+12%</Badge>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 w-[78%]" />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            )}
-          </motion.div>
-        )}
-
-        {view === 'help' && (
-          <motion.div 
-            key="help"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="p-8 flex flex-col h-full overflow-y-auto"
-          >
-            <div className="mb-8 flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">تعليمات ودليل المنصة</h2>
-                <p className="text-muted-foreground italic text-sm underline decoration-primary/30 underline-offset-4">كيفية أداء اختبار تتبع المسار (TMT) بشكل صحيح.</p>
-              </div>
-              <Button variant="ghost" onClick={() => setView('home')}>العودة</Button>
-            </div>
-
-            <div className="space-y-8 max-w-2xl">
-              <section className="space-y-3">
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-                  ما هو اختبار تتبع المسار؟
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  يعد اختبار تتبع المسار (Trail Making Test) من أشهر الأدوات النفسية والعصبية لتقييم الوظائف التنفيذية. يتكون المقياس من جزئين أساسيين يقيسان مهارات ذهنية مختلفة تماماً.
-                </p>
-              </section>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="p-5 border border-blue-100 bg-blue-50/30 rounded-xl space-y-3">
-                  <h4 className="font-bold text-blue-700">الجزء (أ) - TMT-A</h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    يُطلب من المفحوص توصيل دوائر تحتوي على أرقام (1-25) بترتيب تصاعدي. يقيس هذا الجزء سرعة المعالجة الحركية البصرية والانتباه المستمر.
-                  </p>
-                </div>
-                <div className="p-5 border border-purple-100 bg-purple-50/30 rounded-xl space-y-3">
-                  <h4 className="font-bold text-purple-700">الجزء (ب) - TMT-B</h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    تحدي أكبر حيث يجب التناوب بين الأرقام والحروف (1-أ-2-ب...). يقيس هذا الجزء المرونة المعرفية والقدرة على تقسيم الانتباه وتغيير القواعد الذهنية.
-                  </p>
-                </div>
-              </div>
-
-              <section className="space-y-3 pt-4">
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-                  نصائح للأداء الأفضل:
-                </h3>
-                <ul className="text-sm text-slate-600 space-y-3 list-none">
-                  <li className="flex gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <span>احرص على إنهاء الاختبار بأسرع وقت ممكن وبأقل قدر من الأخطاء.</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <span>في حال الخطأ، سيظهر وميض أحمر، عد للنقطة الصحيحة السابقة وأكمل المسار.</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <span>استخدم التدريبات المتدرجة أولاً إذا كانت هذه تجربتك الأولى مع الاختبار.</span>
-                  </li>
-                </ul>
-              </section>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </Layout>
+      {/* Header - Sleek Interface Style */}
+      <header className="h-[70px] bg-white border-b border-border flex items-center justify-between px-10 shadow-sm shrink-0">
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">T</div>
+            <div>
+              <h1 className="text-lg font-bold leading-tight">منصة تقييم تتبع المسار (TMT)</h1>
+              <p className="text-xs text-muted-foreground">تحليل الأداء المعرفي والوظائف التنفيذية</p>
+            </div>
+          </div>
+          
+          <nav className="hidden md:flex items-center gap-1 bg-muted p-1 rounded-lg">
+            <Button 
+              variant={view === 'home' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('home')}
+              className="gap-2"
+            >
+              <Play className="w-4 h-4" />
+              الرئيسية
+            </Button>
+            <Button 
+              variant={view === 'training' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('training')}
+              className="gap-2"
+            >
+              <GraduationCap className="w-4 h-4" />
+              التدريبات
+            </Button>
+            <Button 
+              variant={view === 'history' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('history')}
+              className="gap-2"
+            >
+              <History className="w-4 h-4" />
+              السجل والتحليل
+            </Button>
+            <Button 
+              variant={view === 'help' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('help')}
+              className="gap-2"
+            >
+              <HelpCircle className="w-4 h-4" />
+              تعليمات
+            </Button>
+          </nav>
+        </div>
+        <div className="flex gap-5">
+          <div className="flex flex-col items-end cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setView('profile')}>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">المستخدم:</span>
+            <p className="text-sm font-semibold">{user.displayName || (user.isAnonymous ? 'ضيف' : 'مستخدم')}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="self-center">
+            <LogOut className="w-5 h-5 text-muted-foreground" />
+          </Button>
+        </div>
+      </header>
+
+      <div className="flex-1 grid grid-cols-[280px_1fr_320px] gap-5 p-5 overflow-hidden">
+        {/* Left Sidebar - Skills & Info */}
+        <aside className="bg-white rounded-xl border border-border p-5 flex flex-col gap-4 overflow-y-auto">
+          <h2 className="text-sm font-bold text-primary flex items-center gap-2 mb-2">
+            <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+            المهارات المقاسة
+          </h2>
+          <div className="bg-background p-3 rounded-lg border border-border">
+            <h3 className="text-[10px] text-muted-foreground mb-1 font-bold uppercase">الجزء (أ) - TMT-A</h3>
+            <p className="text-sm font-semibold">الانتباه البصري، سرعة المعالجة الحركية</p>
+          </div>
+          <div className="bg-background p-3 rounded-lg border border-border">
+            <h3 className="text-[10px] text-muted-foreground mb-1 font-bold uppercase">الجزء (ب) - TMT-B</h3>
+            <p className="text-sm font-semibold">المرونة المعرفية، الذاكرة العاملة</p>
+          </div>
+          <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+            <h3 className="text-[10px] text-primary mb-1 font-bold uppercase">المسار العربي - AR</h3>
+            <p className="text-sm font-semibold">تتبع الحروف الهجائية (أ-ب-ت...)</p>
+          </div>
+          
+          <h2 className="text-sm font-bold text-primary flex items-center gap-2 mt-4 mb-2">
+            <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+            دلالات الأداء
+          </h2>
+          <ul className="text-xs text-muted-foreground space-y-2 list-none">
+            <li>• <b className="text-foreground">زمن طويل:</b> بطء في المعالجة</li>
+            <li>• <b className="text-foreground">أخطاء كثيرة:</b> ضعف في الانتباه</li>
+            <li>• <b className="text-foreground">فرق (أ) و (ب):</b> ضعف المرونة</li>
+          </ul>
+
+          <div className="mt-auto pt-6 border-t border-border">
+            <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 text-center group transition-all hover:bg-primary/10">
+              <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <UserIcon className="w-5 h-5 text-primary" />
+              </div>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 mb-1">تصميم وبرمجة وإعداد</p>
+              <h4 className="text-sm font-bold text-foreground">د. أحمد حمدي عاشور الغول</h4>
+              <p className="text-[10px] text-primary font-bold mt-1">دكتوراه في علم النفس التربوي</p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className="bg-white rounded-xl border border-border relative flex flex-col overflow-hidden">
+          <AnimatePresence mode="wait">
+            {view === 'home' && (
+              <motion.div 
+                key="home"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="p-8 flex flex-col items-center justify-center h-full text-center space-y-8"
+              >
+                <div className="max-w-md space-y-4">
+                  <Brain className="w-20 h-20 text-primary mx-auto opacity-20" />
+                  <h2 className="text-3xl font-bold text-foreground">مرحباً بك في منصة التقييم</h2>
+                  <p className="text-muted-foreground">اختر نوع الاختبار للبدء في تقييم الوظائف التنفيذية أو ابدأ التدريب المتدرج من الأسفل.</p>
+                </div>
+                <div className="flex gap-4">
+                  <Button size="lg" className="px-8 py-6 text-lg" onClick={() => startTest('TMT-A')}>ابدأ الجزء (أ)</Button>
+                  <Button size="lg" variant="secondary" className="px-8 py-6 text-lg" onClick={() => startTest('TMT-B')}>ابدأ الجزء (ب)</Button>
+                </div>
+
+                <div className="pt-8 border-t border-border w-full flex flex-col items-center">
+                  <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">قسم خاص: مسارات الاختبار العربية</h3>
+                  <div className="flex gap-4">
+                    <Button variant="outline" size="lg" className="px-8 py-6 border-2 border-primary/20 hover:border-primary/50 hover:bg-primary/5 group" onClick={() => startTest('TMT-B-AR')}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-white transition-colors">أ</div>
+                        <div className="text-right">
+                          <div className="font-bold">الجزء (ب) بالعربية</div>
+                          <div className="text-[10px] text-muted-foreground uppercase">أرقام وحروف عربية</div>
+                        </div>
+                      </div>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className={cn(
+                        "px-8 py-6 border-2 transition-all",
+                        trainingType === 'arabic' ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-border hover:border-emerald-200"
+                      )}
+                      onClick={() => setTrainingType(trainingType === 'arabic' ? 'standard' : 'arabic')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <GraduationCap className={cn("w-6 h-6", trainingType === 'arabic' ? "text-emerald-600" : "text-muted-foreground")} />
+                        <div className="text-right">
+                          <div className="font-bold">تفعيل تدريب المسار العربي</div>
+                          <div className="text-[10px] uppercase">تغيير مستويات التدريب بالأسفل</div>
+                        </div>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {view === 'game' && activeTest && (
+              <motion.div 
+                key="game"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 flex flex-col"
+              >
+                <TMTGame 
+                  type={activeTest.type} 
+                  level={activeTest.level}
+                  onComplete={saveResult}
+                  onCancel={() => {
+                    setView('home');
+                    setActiveTest(null);
+                  }}
+                />
+              </motion.div>
+            )}
+
+            {view === 'training' && (
+              <motion.div 
+                key="training"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 flex flex-col h-full overflow-y-auto"
+              >
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold mb-2">مركز التدريب المتدرج</h2>
+                  <p className="text-muted-foreground">قم ببناء مهارات التتبع البصري والمرونة الذهنية خطوة بخطوة.</p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* Standard Training */}
+                  <div className="space-y-4">
+                    <h3 className="font-bold flex items-center gap-2 text-primary">
+                      <div className="w-2 h-6 bg-primary rounded-full" />
+                      التدريب القياسي (Standard)
+                    </h3>
+                    <div className="grid gap-3">
+                      {[1, 2, 3, 4, 5].map((lvl) => (
+                        <Card key={lvl} className="hover:border-primary/50 transition-colors cursor-pointer group" onClick={() => startTest('TRAINING', lvl)}>
+                          <CardHeader className="p-4 space-y-0 flex flex-row items-center justify-between">
+                            <div>
+                              <div className="text-[10px] font-bold text-primary uppercase">مستوى {lvl}</div>
+                              <CardTitle className="text-base">
+                                {lvl === 1 ? 'تتبع أرقام بسيطة' : 
+                                 lvl === 2 ? 'سرعة المعالجة البصرية' :
+                                 lvl === 3 ? 'التناوب العقلي الشامل' :
+                                 lvl === 4 ? 'التفكير المرن المتقدم' : 'المهام التنفيذية المركبة'}
+                              </CardTitle>
+                              <CardDescription>
+                                {lvl === 1 ? 'توصيل من 1 إلى 10' : 
+                                 lvl === 2 ? 'توصيل من 1 إلى 20 بتركيز عالٍ' :
+                                 lvl === 3 ? 'التناوب بين الأرقام والحروف ABCD' :
+                                 lvl === 4 ? 'تغيير القواعد والمسارات' : 'تحدي المتاهات المعقدة'}
+                              </CardDescription>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-[-4px]" />
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Arabic Training */}
+                  <div className="space-y-4">
+                    <h3 className="font-bold flex items-center gap-2 text-emerald-600">
+                      <div className="w-2 h-6 bg-emerald-600 rounded-full" />
+                      التدريب العربي (Arabic Path)
+                    </h3>
+                    <div className="grid gap-3">
+                      {[1, 2, 3, 4, 5].map((lvl) => (
+                        <Card key={lvl} className="hover:border-emerald-500/50 transition-colors cursor-pointer group border-emerald-100" onClick={() => startTest('TMT-B-AR-TRAINING', lvl)}>
+                          <CardHeader className="p-4 space-y-0 flex flex-row items-center justify-between">
+                            <div>
+                              <div className="text-[10px] font-bold text-emerald-600 uppercase">تدريب عربي {lvl}</div>
+                              <CardTitle className="text-base text-emerald-950">
+                                {lvl === 1 ? 'بداية المسار الهجائي' : 
+                                 lvl === 2 ? 'تكامل الأرقام والحروف' :
+                                 lvl === 3 ? 'التناوب الهجائي المركز' :
+                                 lvl === 4 ? 'المرونة اللغوية الذهنية' : 'إتقان الإدراك الهجائي'}
+                              </CardTitle>
+                              <CardDescription>
+                                {lvl === 1 ? 'توصيل من 1 إلى أ' : 
+                                 lvl === 2 ? 'تسلسل تصاعدي حتى حرف ج' :
+                                 lvl === 3 ? 'مناورة سريعة حتى حرف خ' :
+                                 lvl === 4 ? 'تركيز معقد حتى حرف ذ' : 'إتقان كامل للمسار العربي'}
+                              </CardDescription>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-emerald-600 transition-transform group-hover:translate-x-[-4px]" />
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {view === 'history' && (
+              <motion.div 
+                key="history"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="p-6 flex flex-col h-full"
+              >
+                {analysis && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6 shrink-0">
+                    <h3 className="text-primary font-bold flex items-center gap-2 mb-3">
+                      <TrendingUp className="w-5 h-5" />
+                      تحليل الأداء الذكي
+                    </h3>
+                    <p className="text-sm text-slate-800 mb-4 leading-relaxed">{analysis.interpretation}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.recommendations.map((rec, i) => (
+                        <Badge key={i} variant="secondary" className="bg-white border-blue-200 text-blue-700">{rec}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg">سجل النتائج الأخير</h3>
+                  <Button variant="ghost" size="sm" onClick={() => setView('home')}>العودة</Button>
+                </div>
+
+                <ScrollArea className="flex-1 -mx-2 px-2">
+                  <div className="space-y-3">
+                    {results.map((res, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 border border-border rounded-lg bg-background/50">
+                        <div className="flex items-center gap-3">
+                          <Badge className={cn(
+                            res.testType === 'TMT-A' ? "bg-blue-500" :
+                            res.testType === 'TMT-B' ? "bg-purple-500" : 
+                            res.testType === 'TMT-B-AR' ? "bg-emerald-500" : 
+                            res.testType === 'TMT-B-AR-TRAINING' ? "bg-teal-500" : "bg-orange-500"
+                          )}>
+                            {res.testType === 'TMT-A' ? 'A' : res.testType === 'TMT-B' ? 'B' : res.testType === 'TMT-B-AR' ? 'AR' : res.testType === 'TMT-B-AR-TRAINING' ? 'ت-ع' : 'T'}
+                          </Badge>
+                          <div>
+                            <div className="text-sm font-bold">
+                              {res.testType === 'TRAINING' ? `تدريب - مستوى ${res.level}` : 
+                               res.testType === 'TMT-B-AR-TRAINING' ? `تدريب عربي - مستوى ${res.level}` :
+                               res.testType === 'TMT-B-AR' ? 'الجزء (ب) - مسار عربي' : res.testType}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">{res.timestamp?.toDate().toLocaleDateString('ar-EG')}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-4 items-center">
+                          <div className="text-center">
+                            <div className="text-[10px] text-muted-foreground uppercase">الزمن</div>
+                            <div className="text-sm font-bold">{res.timeInSeconds}s</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[10px] text-muted-foreground uppercase">الأخطاء</div>
+                            <div className="text-sm font-bold text-destructive">{res.errors}</div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-muted-foreground hover:text-destructive h-8 w-8"
+                            onClick={() => deleteResult(res.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </motion.div>
+            )}
+
+            {view === 'profile' && (
+              <motion.div 
+                key="profile"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-8 flex flex-col h-full items-center justify-center text-center max-w-lg mx-auto"
+              >
+                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6 ring-4 ring-primary/5">
+                  <UserCircle className="w-16 h-16" />
+                </div>
+                <h2 className="text-2xl font-bold mb-1">{user.displayName || 'مستخدم المنصة'}</h2>
+                <p className="text-muted-foreground mb-8">{user.email || 'حساب زائر'}</p>
+                
+                <div className="grid grid-cols-2 gap-4 w-full mb-8">
+                  <div className="p-4 bg-muted rounded-xl border border-border">
+                    <div className="text-2xl font-bold text-primary">{results.length}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">إجمالي الاختبارات</div>
+                  </div>
+                  <div className="p-4 bg-muted rounded-xl border border-border">
+                    <div className="text-2xl font-bold text-emerald-600">
+                      {results.filter(r => r.errors === 0).length}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">اختبارات بدون أخطاء</div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 w-full">
+                  <Button variant="outline" className="w-full gap-2 justify-start py-6" onClick={() => setView('history')}>
+                    <History className="w-4 h-4" />
+                    عرض سجل النتائج الكامل
+                  </Button>
+                  <Button variant="outline" className="w-full gap-2 justify-start py-6" onClick={() => setView('help')}>
+                    <HelpCircle className="w-4 h-4" />
+                    دليل الاستخدام والتعليمات
+                  </Button>
+                  <Button variant="destructive" className="w-full gap-2 py-6 mt-4" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4" />
+                    تسجيل الخروج
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
+            {view === 'help' && (
+              <motion.div 
+                key="help"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="p-8 flex flex-col h-full overflow-y-auto"
+              >
+                <div className="mb-8 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">تعليمات ودليل المنصة</h2>
+                    <p className="text-muted-foreground italic text-sm underline decoration-primary/30 underline-offset-4">كيفية أداء اختبار تتبع المسار (TMT) بشكل صحيح.</p>
+                  </div>
+                  <Button variant="ghost" onClick={() => setView('home')}>العودة</Button>
+                </div>
+
+                <div className="space-y-8 max-w-2xl">
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                      ما هو اختبار تتبع المسار؟
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      يعد اختبار تتبع المسار (Trail Making Test) من أشهر الأدوات النفسية والعصبية لتقييم الوظائف التنفيذية. يتكون المقياس من جزئين أساسيين يقيسان مهارات ذهنية مختلفة تماماً.
+                    </p>
+                  </section>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="p-5 border border-blue-100 bg-blue-50/30 rounded-xl space-y-3">
+                      <h4 className="font-bold text-blue-700">الجزء (أ) - TMT-A</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        يُطلب من المفحوص توصيل دوائر تحتوي على أرقام (1-25) بترتيب تصاعدي. يقيس هذا الجزء سرعة المعالجة الحركية البصرية والانتباه المستمر.
+                      </p>
+                    </div>
+                    <div className="p-5 border border-purple-100 bg-purple-50/30 rounded-xl space-y-3">
+                      <h4 className="font-bold text-purple-700">الجزء (ب) - TMT-B</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        تحدي أكبر حيث يجب التناوب بين الأرقام والحروف (1-أ-2-ب...). يقيس هذا الجزء المرونة المعرفية والقدرة على تقسيم الانتباه وتغيير القواعد الذهنية.
+                      </p>
+                    </div>
+                  </div>
+
+                  <section className="space-y-3 pt-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                      نصائح للأداء الأفضل:
+                    </h3>
+                    <ul className="text-sm text-slate-600 space-y-3 list-none">
+                      <li className="flex gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span>احرص على إنهاء الاختبار بأسرع وقت ممكن وبأقل قدر من الأخطاء.</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span>في حال الخطأ، سيظهر وميض أحمر، عد للنقطة الصحيحة السابقة وأكمل المسار.</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span>استخدم التدريبات المتدرجة أولاً إذا كانت هذه تجربتك الأولى مع الاختبار.</span>
+                      </li>
+                    </ul>
+                  </section>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+
+        {/* Right Sidebar - Statistical Analysis */}
+        <aside className="bg-white rounded-xl border border-border p-5 flex flex-col gap-4">
+          <h2 className="text-sm font-bold text-primary flex items-center gap-2 mb-2">
+            <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+            نتائج التحليل الإحصائي
+          </h2>
+          
+          <div className="flex-1 overflow-y-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-right py-2 font-normal text-muted-foreground">المسار</th>
+                  <th className="text-right py-2 font-normal text-muted-foreground">الزمن</th>
+                  <th className="text-right py-2 font-normal text-muted-foreground">الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.slice(0, 5).map((res, i) => (
+                  <tr key={i} className="border-b border-border/50">
+                    <td className="py-2 font-medium">
+                      {res.testType === 'TMT-B-AR' ? 'الجزء (ب) عربي' : 
+                       res.testType === 'TMT-B-AR-TRAINING' ? `تدريب عربي ${res.level}` : res.testType}
+                    </td>
+                    <td className="py-2">{res.timeInSeconds}ث</td>
+                    <td className="py-2">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                        res.errors === 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                      )}>
+                        {res.errors === 0 ? 'طبيعي' : 'ضعف بسيط'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="bg-secondary p-4 rounded-xl border border-primary/20 mt-auto">
+            <h3 className="text-[10px] text-primary font-bold uppercase mb-1">المؤشر المركب (CTMT Index)</h3>
+            <p className="text-3xl font-bold text-primary">
+              {results.length > 0 ? (results.reduce((acc, r) => acc + r.timeInSeconds, 0) / results.length).toFixed(1) : '0.0'}
+            </p>
+            <span className="text-[10px] font-bold text-primary/80">نطاق الأداء: متوسط (طبيعي)</span>
+          </div>
+        </aside>
+      </div>
+
+      {/* Footer - Training Levels */}
+      <footer className="h-[120px] bg-white border-t border-border px-10 py-4 grid grid-cols-5 gap-5 shrink-0">
+        {[1, 2, 3, 4, 5].map((lvl) => (
+          <button 
+            key={lvl}
+            onClick={() => startTest(trainingType === 'arabic' ? 'TMT-B-AR-TRAINING' : 'TRAINING', lvl)}
+            className={cn(
+              "flex flex-col gap-1 p-3 rounded-lg border text-right transition-all hover:border-primary/50",
+              activeTest?.level === lvl && activeTest?.type.includes(trainingType === 'arabic' ? 'AR' : 'TRAINING') ? 
+              (trainingType === 'arabic' ? "bg-emerald-50 border-emerald-500" : "bg-secondary border-primary") : "bg-white border-border"
+            )}
+          >
+            <div className={cn("text-[10px] font-bold uppercase", trainingType === 'arabic' ? "text-emerald-600" : "text-primary")}>
+              {trainingType === 'arabic' ? 'تدريب عربي' : 'المستوى'} {lvl}
+            </div>
+            <div className="text-sm font-bold truncate">
+              {trainingType === 'arabic' ? (
+                lvl === 1 ? 'بداية المسار' : 
+                lvl === 2 ? 'تكامل الأرقام' :
+                lvl === 3 ? 'التناوب الهجائي' :
+                lvl === 4 ? 'المرونة اللغوية' : 'الإدراك المركب'
+              ) : (
+                lvl === 1 ? 'تتبع أرقام بسيطة' : 
+                lvl === 2 ? 'سرعة المعالجة' :
+                lvl === 3 ? 'التناوب العقلي' :
+                lvl === 4 ? 'التفكير المرن' : 'المهام المركبة'
+              )}
+            </div>
+            <div className="text-[10px] text-muted-foreground truncate">
+              {trainingType === 'arabic' ? (
+                lvl === 1 ? 'من 1 إلى أ' : 
+                lvl === 2 ? 'وصولاً إلى ج' :
+                lvl === 3 ? 'وصولاً إلى خ' :
+                lvl === 4 ? 'وصولاً إلى ذ' : 'إتقان المسار العربي'
+              ) : (
+                lvl === 1 ? 'توصيل من 1 إلى 10' : 
+                lvl === 2 ? 'كسر الرقم القياسي' :
+                lvl === 3 ? 'أرقام مع حروف' :
+                lvl === 4 ? 'تغيير القواعد' : 'متاهات متقدمة'
+              )}
+            </div>
+          </button>
+        ))}
+      </footer>
+
+      {/* Bottom Navigation for Mobile */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 md:hidden z-50">
+        <Button 
+          variant="ghost" 
+          className={cn("flex flex-col gap-1 h-auto py-2", view === 'home' && "text-primary")} 
+          onClick={() => setView('home')}
+        >
+          <Play className="w-5 h-5" />
+          <span className="text-[10px]">الرئيسية</span>
+        </Button>
+        <Button 
+          variant="ghost" 
+          className={cn("flex flex-col gap-1 h-auto py-2", view === 'training' && "text-primary")} 
+          onClick={() => setView('training')}
+        >
+          <GraduationCap className="w-5 h-5" />
+          <span className="text-[10px]">التدريب</span>
+        </Button>
+        <Button 
+          variant="ghost" 
+          className={cn("flex flex-col gap-1 h-auto py-2", view === 'history' && "text-primary")} 
+          onClick={() => setView('history')}
+        >
+          <History className="w-5 h-5" />
+          <span className="text-[10px]">السجل</span>
+        </Button>
+      </div>
+    </div>
   );
 }
