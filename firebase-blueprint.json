@@ -19,12 +19,19 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
-        "testType": { "type": "string", "enum": ["TMT-A", "TMT-B", "TRAINING"] },
+        "testType": { "type": "string", "enum": ["TMT-A", "TMT-B", "TMT-B-AR", "TRAINING", "TMT-B-AR-TRAINING"] },
         "level": { "type": "integer" },
         "timeInSeconds": { "type": "number" },
         "errors": { "type": "integer" },
         "timestamp": { "type": "string", "format": "date-time" },
-        "rawPath": { "type": "string", "description": "JSON string of the path taken" }
+        "rawPath": { "type": "string", "description": "JSON string of the path taken" },
+        "analysis": {
+          "type": "object",
+          "properties": {
+            "interpretation": { "type": "string" },
+            "recommendations": { "type": "array", "items": { "type": "string" } }
+          }
+        }
       },
       "required": ["uid", "testType", "timeInSeconds", "errors", "timestamp"]
     }

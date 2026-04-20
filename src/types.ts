@@ -17,6 +17,10 @@ export interface TestResult {
   errors: number;
   timestamp: any;
   rawPath?: string;
+  analysis?: {
+    interpretation: string;
+    recommendations: string[];
+  };
 }
 
 export interface UserProfile {
