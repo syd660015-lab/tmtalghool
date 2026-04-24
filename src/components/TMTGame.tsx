@@ -4,7 +4,7 @@ import { TMTPoint, TMTType } from '../types';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Timer, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Timer, AlertCircle, RefreshCcw, CheckCircle2, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface TMTGameProps {
@@ -212,7 +212,6 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
   const finishTest = () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     setStatus('finished');
-    onComplete(elapsedTime, errors);
   };
 
   const lines = useMemo(() => {
@@ -275,6 +274,59 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
               </p>
               <Button size="lg" onClick={startTest} className="w-full py-6 text-lg">ابدأ الآن</Button>
             </div>
+          </div>
+        )}
+
+        {status === 'finished' && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-md px-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-center p-8 max-w-md w-full bg-white rounded-2xl shadow-2xl border border-primary/20 flex flex-col items-center"
+            >
+              <motion.div 
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", damping: 12, stiffness: 200 }}
+                className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-6 text-emerald-600"
+              >
+                <CheckCircle2 className="w-12 h-12" />
+              </motion.div>
+              <h3 className="text-2xl font-bold mb-2 text-foreground">اكتمل الاختبار بنجاح!</h3>
+              <p className="text-muted-foreground mb-8">
+                لقد أنهيت المسار في <span className="font-bold text-primary">{elapsedTime.toFixed(1)} ثانية</span> مع <span className="font-bold text-destructive">{errors} أخطاء</span>.
+              </p>
+              
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.02, 1],
+                }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="w-full"
+              >
+                <Button 
+                  size="lg" 
+                  onClick={() => onComplete(elapsedTime, errors)} 
+                  className="w-full h-16 text-lg shadow-lg group relative overflow-hidden bg-primary hover:bg-primary/90"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    حفظ وتحليل النتائج
+                    <motion.div
+                      animate={{ x: [0, 5, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      <ChevronRight className="w-5 h-5 rotate-180" />
+                    </motion.div>
+                  </span>
+                  <motion.div 
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    initial={{ x: "-100%" }}
+                    animate={{ x: "200%" }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                  />
+                </Button>
+              </motion.div>
+            </motion.div>
           </div>
         )}
 
