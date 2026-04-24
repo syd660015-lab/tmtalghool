@@ -11,11 +11,16 @@ import { cn } from '../lib/utils';
 interface TMTGameProps {
   type: TMTType;
   level?: number;
+  settings: {
+    soundEnabled: boolean;
+    volume: number;
+    visualFeedback: boolean;
+  };
   onComplete: (time: number, errors: number) => void;
   onCancel: () => void;
 }
 
-export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCancel }) => {
+export const TMTGame: React.FC<TMTGameProps> = ({ type, level, settings, onComplete, onCancel }) => {
   const [points, setPoints] = useState<TMTPoint[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -193,20 +198,22 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
   };
 
   const playClickSound = (isCorrect: boolean) => {
+    if (!settings.soundEnabled) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
+      const vol = settings.volume / 100;
 
       oscillator.type = 'sine';
       if (isCorrect) {
         oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
         oscillator.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.05);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1 * vol, audioCtx.currentTime);
       } else {
         oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
         oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.2 * vol, audioCtx.currentTime);
       }
 
       gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.1);
@@ -242,17 +249,19 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
   };
 
   const playSuccessSound = () => {
+    if (!settings.soundEnabled) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
+      const vol = settings.volume / 100;
 
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
       oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1); // C6
 
       gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0.2 * vol, audioCtx.currentTime + 0.05);
       gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
 
       oscillator.connect(gainNode);
@@ -271,12 +280,14 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
     
     // Success effects
     playSuccessSound();
-    confetti({
-      particleCount: 150,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
-    });
+    if (settings.visualFeedback) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+      });
+    }
   };
 
   const lines = useMemo(() => {

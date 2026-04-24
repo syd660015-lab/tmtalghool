@@ -6,14 +6,21 @@ export async function analyzeTMTResult(
   testType: string,
   timeInSeconds: number,
   errors: number,
-  level?: number
+  level?: number,
+  sensitivity: 'high' | 'normal' | 'low' = 'normal'
 ) {
+  const sensitivityNote = 
+    sensitivity === 'high' ? "Use very strict clinical standards. Even minor delays should be noted as areas for significant improvement." :
+    sensitivity === 'low' ? "Use very lenient standards. Be extra encouraging and focus only on major cognitive obstacles." :
+    "Use standard clinical benchmarks for a healthy adult.";
+
   const prompt = `
     Analyze the following Trail Making Test (TMT) result:
     - Test Type: ${testType}
     - Level: ${level || 'N/A'}
     - Time: ${timeInSeconds} seconds
     - Errors: ${errors}
+    - Analysis Sensitivity: ${sensitivity} (${sensitivityNote})
 
     Based on the following clinical guidelines:
     - TMT-A measures visual attention, processing speed, and motor tracking.

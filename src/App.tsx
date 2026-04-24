@@ -45,7 +45,35 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [trainingType, setTrainingType] = useState<'standard' | 'arabic'>('standard');
   const [sidebarSkill, setSidebarSkill] = useState<string | null>(null);
+  const [settings, setSettings] = useState({
+    aiSensitivity: 'normal' as 'high' | 'normal' | 'low',
+    soundEnabled: true,
+    volume: 50,
+    visualFeedback: true,
+    hapticFeedback: true
+  });
   const resultsUnsubscribeRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    // Load settings from localStorage
+    const savedSettings = localStorage.getItem('tmt_settings');
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (e) {
+        console.error("Failed to parse settings", e);
+      }
+    }
+  }, []);
+
+  const updateSettings = (newSettings: Partial<typeof settings>) => {
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      localStorage.setItem('tmt_settings', JSON.stringify(updated));
+      return updated;
+    });
+    toast.success('تم تحديث الإعدادات');
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -160,7 +188,7 @@ export default function App() {
     setIsAnalyzing(true);
     let aiResponse = null;
     try {
-      aiResponse = await analyzeTMTResult(activeTest.type, time, errors, activeTest.level);
+      aiResponse = await analyzeTMTResult(activeTest.type, time, errors, activeTest.level, settings.aiSensitivity);
     } catch (e) {
       console.error("AI Analysis failed:", e);
     }
@@ -311,6 +339,15 @@ export default function App() {
             >
               <HelpCircle className="w-4 h-4" />
               تعليمات
+            </Button>
+            <Button 
+              variant={view === 'settings' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              onClick={() => setView('settings')}
+              className="gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              الإعدادات
             </Button>
             <Button 
               variant={view === 'settings' ? 'secondary' : 'ghost'} 
@@ -515,6 +552,7 @@ export default function App() {
                   type={activeTest.type} 
                   level={activeTest.level}
                   onComplete={saveResult}
+                  settings={settings}
                   onCancel={() => {
                     setView('home');
                     setActiveTest(null);
@@ -555,10 +593,10 @@ export default function App() {
                                  lvl === 4 ? 'التفكير المرن المتقدم' : 'المهام التنفيذية المركبة'}
                               </CardTitle>
                               <CardDescription>
-                                {lvl === 1 ? 'توصيل من 1 إلى 10' : 
-                                 lvl === 2 ? 'توصيل من 1 إلى 20 بتركيز عالٍ' :
-                                 lvl === 3 ? 'التناوب بين الأرقام والحروف ABCD' :
-                                 lvl === 4 ? 'تغيير القواعد والمسارات' : 'تحدي المتاهات المعقدة'}
+                                {lvl === 1 ? 'توصيل من 1 إلى 10 - التركيز: المهارة الحركية والمسح البصري الأساسي.' : 
+                                 lvl === 2 ? 'توصيل من 1 إلى 20 - التركيز: زيادة سعة الانتباه وسرعة المعالجة.' :
+                                 lvl === 3 ? 'التناوب بين الأرقام والحروف - التركيز: المرونة الإدراكية والذاكرة العاملة.' :
+                                 lvl === 4 ? 'تغيير القواعد والمسارات - التركيز: كبت الاستجابة والتحكم التنفيذي.' : 'تحدي المتاهات المعقدة - التركيز: التخطيط الاستراتيجي وحل المشكلات.'}
                               </CardDescription>
                             </div>
                             <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-[-4px]" />
@@ -587,10 +625,10 @@ export default function App() {
                                  lvl === 4 ? 'المرونة اللغوية الذهنية' : 'إتقان الإدراك الهجائي'}
                               </CardTitle>
                               <CardDescription>
-                                {lvl === 1 ? 'توصيل من 1 إلى أ' : 
-                                 lvl === 2 ? 'تسلسل تصاعدي حتى حرف ج' :
-                                 lvl === 3 ? 'مناورة سريعة حتى حرف خ' :
-                                 lvl === 4 ? 'تركيز معقد حتى حرف ذ' : 'إتقان كامل للمسار العربي'}
+                                {lvl === 1 ? 'توصيل من 1 إلى أ - التركيز: الربط البصري الأولي بين الأرقام والحروف.' : 
+                                 lvl === 2 ? 'تسلسل تصاعدي حتى ج - التركيز: التناوب بين نظامين معرفيين مختلفين.' :
+                                 lvl === 3 ? 'مناورة سريعة حتى حرف خ - التركيز: سرعة الاستدعاء والمعالجة الهجائية.' :
+                                 lvl === 4 ? 'تركيز معقد حتى حرف ذ - التركيز: الربط المتقدم بين الرموز اللغوية والعددية.' : 'إتقان كامل للمسار - التركيز: الكفاءة التنفيذية القصوى في سياق لغوي.'}
                               </CardDescription>
                             </div>
                             <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-emerald-600 transition-transform group-hover:translate-x-[-4px]" />
@@ -732,70 +770,166 @@ export default function App() {
                 key="settings"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-8 flex flex-col h-full max-w-2xl mx-auto space-y-8"
+                className="p-8 flex flex-col h-full max-w-4xl mx-auto space-y-8 overflow-y-auto"
               >
-                <div className="flex justify-between items-center">
-                  <h2 className="text-3xl font-bold">الإعدادات والتفضيلات</h2>
-                  <Button variant="ghost" onClick={() => setView('home')}>العودة</Button>
+                <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-border shadow-sm">
+                  <div>
+                    <h2 className="text-3xl font-bold">الإعدادات المتقدمة</h2>
+                    <p className="text-muted-foreground mt-1 text-sm">خصص تجربة التقييم وتحليل الذكاء الاصطناعي</p>
+                  </div>
+                  <Button variant="ghost" className="gap-2" onClick={() => setView('home')}>
+                    <ChevronLeft className="w-4 h-4 ml-2" />
+                    العودة للرئيسية
+                  </Button>
                 </div>
 
-                <div className="grid gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <UserIcon className="w-5 h-5 text-primary" />
-                        تخصيص الملف الشخصي
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                        <div>
-                          <div className="font-bold">{user.displayName || 'ضيف'}</div>
-                          <div className="text-xs text-muted-foreground">{user.email || 'حساب زائر'}</div>
-                        </div>
-                        <Badge variant="outline">نشط الآن</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        ملاحظة: يتم مزامنة بياناتك تلقائياً مع حساب جوجل لضمان حفظ سجل الاختبارات والتحليلات عبر الأجهزة.
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
+                <div className="grid md:grid-cols-2 gap-6 pb-10">
+                  {/* AI Settings */}
+                  <Card className="border-primary/10 shadow-sm">
+                    <CardHeader className="bg-primary/5 border-b border-primary/10">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Brain className="w-5 h-5 text-primary" />
-                        منهجية التقييم
+                        حساسية تحليل الذكاء الاصطناعي
                       </CardTitle>
+                      <CardDescription>تحكم في مدى صرامة المعايير المستخدمة في التقييم التلقائي للأداء.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                          <span>نموذج تحليل الذكاء الاصطناعي</span>
-                          <Badge variant="secondary">Gemini 3 Flash</Badge>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span>نظام تصنيف الأداء</span>
-                          <Badge variant="secondary">معايير TMT الدولية</Badge>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span>دعم المسار العربي</span>
-                          <Badge className="bg-emerald-500 text-white">مفعل (نشط)</Badge>
-                        </div>
-                      </div>
+                    <CardContent className="pt-6 space-y-6">
+                       <div className="flex bg-muted p-1 rounded-xl">
+                          {(['low', 'normal', 'high'] as const).map((level) => (
+                            <button
+                              key={level}
+                              onClick={() => updateSettings({ aiSensitivity: level })}
+                              className={cn(
+                                "flex-1 py-3 px-4 rounded-lg text-sm font-bold transition-all",
+                                settings.aiSensitivity === level 
+                                  ? "bg-white text-primary shadow-sm" 
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {level === 'low' ? 'منخفضة' : level === 'normal' ? 'متوسطة' : 'عالية'}
+                            </button>
+                          ))}
+                       </div>
+                       <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                          <h4 className="text-sm font-bold mb-2 flex items-center gap-2">
+                            <Info className="w-4 h-4 text-primary" />
+                            تأثير هذا الضبط:
+                          </h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {settings.aiSensitivity === 'high' && "سيتم استخدام معايير صارمة جداً. التقرير سيركز على أدق التفاصيل في زمن المعالجة وتوزيع الأخطاء."}
+                            {settings.aiSensitivity === 'normal' && "توازن بين الدقة والمرونة. المسار الافتراضي لمعظم الفئات العمرية والتشخيصية."}
+                            {settings.aiSensitivity === 'low' && "معايير أكثر تسامحاً. مناسبة للفئات العمرية الكبيرة أو حالات الضعف الإدراكي الشديد."}
+                          </p>
+                       </div>
                     </CardContent>
                   </Card>
 
-                  <div className="pt-6 border-t flex gap-4">
-                    <Button variant="outline" className="flex-1 py-6" onClick={exportData}>
-                      <FileText className="w-4 h-4 ml-2" />
-                      تصدير البيانات (JSON)
-                    </Button>
-                    <Button variant="destructive" className="flex-1 py-6 outline-destructive" onClick={clearAllData}>
-                      <Trash2 className="w-4 h-4 ml-2" />
-                      مسح كافة البيانات
-                    </Button>
-                  </div>
+                  {/* Audio & Visuals */}
+                  <Card className="border-border shadow-sm">
+                    <CardHeader className="bg-slate-50 border-b">
+                      <CardTitle className="text-lg flex items-center gap-2 text-slate-800">
+                        <Settings className="w-5 h-5" />
+                        التغذية الراجعة الصوتية والبصرية
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6 space-y-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-bold flex items-center gap-2">تفعيل المؤثرات الصوتية</div>
+                              <div className="text-xs text-muted-foreground">تشغيل الأصوات عند النقر الصحيح أو الخطأ</div>
+                            </div>
+                            <input 
+                              type="checkbox" 
+                              checked={settings.soundEnabled} 
+                              onChange={(e) => updateSettings({ soundEnabled: e.target.checked })}
+                              className="w-10 h-5 bg-muted rounded-full appearance-none checked:bg-primary transition-all relative cursor-pointer before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 checked:before:left-5.5 before:transition-all"
+                            />
+                          </div>
+
+                          {settings.soundEnabled && (
+                            <div className="space-y-2 pt-2 border-t">
+                              <div className="flex justify-between text-xs font-bold mb-1">
+                                <span>مستوى الصوت</span>
+                                <span>{settings.volume}%</span>
+                              </div>
+                              <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={settings.volume} 
+                                onChange={(e) => updateSettings({ volume: parseInt(e.target.value) })}
+                                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-4 border-t">
+                            <div>
+                              <div className="font-bold">المؤثرات البصرية الاحتفالية</div>
+                              <div className="text-xs text-muted-foreground">إظهار القصاصات الملونة (Confetti) عند الانتهاء</div>
+                            </div>
+                            <input 
+                              type="checkbox" 
+                              checked={settings.visualFeedback} 
+                              onChange={(e) => updateSettings({ visualFeedback: e.target.checked })}
+                              className="w-10 h-5 bg-muted rounded-full appearance-none checked:bg-emerald-500 transition-all relative cursor-pointer before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 checked:before:left-5.5 before:transition-all"
+                            />
+                          </div>
+                        </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Profile Card Refined */}
+                  <Card className="md:col-span-2 border-border shadow-sm overflow-hidden">
+                    <div className="bg-slate-900 text-white p-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-white ring-2 ring-white/20">
+                          <UserCircle className="w-10 h-10" />
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-bold">{user.displayName || 'مستخدم المنصة'}</div>
+                          <div className="text-slate-400 text-sm">{user.email || 'حساب زائر'}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button variant="outline" className="bg-white/5 border-white/20 text-white hover:bg-white/10" onClick={exportData}>
+                          <FileText className="w-4 h-4 ml-2" />
+                          تصدير السجل
+                        </Button>
+                        <Button variant="destructive" onClick={handleLogout}>
+                          <LogOut className="w-4 h-4 ml-2" />
+                          تسجيل الخروج
+                        </Button>
+                      </div>
+                    </div>
+                    <CardContent className="p-0">
+                      <div className="grid grid-cols-3 divide-x divide-x-reverse border-b">
+                        <div className="p-6 text-center">
+                          <div className="text-2xl font-bold text-primary">{results.length}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">إجمالي المحاولات</div>
+                        </div>
+                        <div className="p-6 text-center">
+                          <div className="text-2xl font-bold text-emerald-600">
+                             {results.length > 0 ? (results.filter(r => r.errors === 0).length / results.length * 100).toFixed(0) : 0}%
+                          </div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">نسبة الدقة المثالية</div>
+                        </div>
+                        <div className="p-6 text-center">
+                          <div className="text-2xl font-bold text-amber-600">
+                             {results.length > 0 ? (results.reduce((acc, r) => acc + r.errors, 0) / results.length).toFixed(1) : 0}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground uppercase font-bold mt-1">متوسط الأخطاء / محاولة</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="bg-slate-50 justify-center p-4">
+                       <Button variant="ghost" className="text-destructive font-bold text-xs" onClick={clearAllData}>
+                          <Trash2 className="w-4 h-4 ml-2" />
+                          مسح كافة بيانات السجل نهائياً
+                       </Button>
+                    </CardFooter>
+                  </Card>
                 </div>
               </motion.div>
             )}
