@@ -105,6 +105,34 @@ export default function App() {
     }
   };
 
+  const clearAllData = async () => {
+    if (!user || results.length === 0) return;
+    if (!confirm('هل أنت متأكد من مسح جميع النتائج؟ لا يمكن التراجع عن هذه الخطوة.')) return;
+    
+    try {
+      const promises = results.map(res => deleteDoc(doc(db, 'results', res.id)));
+      await Promise.all(promises);
+      toast.success('تم مسح جميع البيانات بنجاح');
+    } catch (e) {
+      toast.error('حدث خطأ أثناء مسح البيانات');
+    }
+  };
+
+  const exportData = () => {
+    if (results.length === 0) {
+      toast.error('لا توجد بيانات لتصديرها');
+      return;
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `tmt_results_${new Date().toISOString()}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    toast.success('تم تجهيز الملف للتنزيل');
+  };
+
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -406,7 +434,7 @@ export default function App() {
               <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
                 <UserIcon className="w-5 h-5 text-primary" />
               </div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 mb-1">تصميم وبرمجة وإعداد</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">تصميم وبرمجة وإعداد</p>
               <h4 className="text-sm font-bold text-foreground">د. أحمد حمدي عاشور الغول</h4>
               <p className="text-[10px] text-primary font-bold mt-1">دكتوراه في علم النفس التربوي</p>
             </div>
@@ -759,17 +787,13 @@ export default function App() {
                   </Card>
 
                   <div className="pt-6 border-t flex gap-4">
-                    <Button variant="outline" className="flex-1 py-6" onClick={() => {
-                        toast.info("سيتم إضافة ميزة تصدير البيانات في التحديث القادم");
-                    }}>
-                      <div className="flex items-center gap-2">
-                        <Trash2 className="w-4 h-4" />
-                        مسح كافة البيانات
-                      </div>
+                    <Button variant="outline" className="flex-1 py-6" onClick={exportData}>
+                      <FileText className="w-4 h-4 ml-2" />
+                      تصدير البيانات (JSON)
                     </Button>
-                    <Button className="flex-1 py-6" onClick={() => setView('help')}>
-                      <HelpCircle className="w-4 h-4 ml-2" />
-                      استكشاف الأخطاء
+                    <Button variant="destructive" className="flex-1 py-6 outline-destructive" onClick={clearAllData}>
+                      <Trash2 className="w-4 h-4 ml-2" />
+                      مسح كافة البيانات
                     </Button>
                   </div>
                 </div>

@@ -19,7 +19,7 @@ interface StatsChartProps {
 
 export const StatsChart: React.FC<StatsChartProps> = ({ results }) => {
   const chartData = [...results].reverse().map(res => ({
-    name: res.timestamp?.toDate().toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }),
+    name: res.timestamp?.toDate ? res.timestamp.toDate().toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) : 'بدون تاريخ',
     time: res.timeInSeconds,
     errors: res.errors,
     type: res.testType
