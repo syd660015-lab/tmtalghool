@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import confetti from 'canvas-confetti';
 import { TMTPoint, TMTType } from '../types';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -191,10 +192,40 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
     }, 100);
   };
 
+  const playClickSound = (isCorrect: boolean) => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = 'sine';
+      if (isCorrect) {
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      } else {
+        oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      }
+
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.1);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.1);
+    } catch (e) {
+      // Audio might be blocked by browser policy until user interacts
+    }
+  };
+
   const handlePointClick = (point: TMTPoint) => {
     if (status !== 'running') return;
 
     if (point.order === currentIndex) {
+      playClickSound(true);
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
       setLastErrorPoint(null);
@@ -203,15 +234,49 @@ export const TMTGame: React.FC<TMTGameProps> = ({ type, level, onComplete, onCan
         finishTest();
       }
     } else if (point.order > currentIndex) {
+      playClickSound(false);
       setErrors((prev) => prev + 1);
       setLastErrorPoint(point.id);
       setTimeout(() => setLastErrorPoint(null), 500);
     }
   };
 
+  const playSuccessSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+      oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1); // C6
+
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+      console.error('Audio effect failed', e);
+    }
+  };
+
   const finishTest = () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     setStatus('finished');
+    
+    // Success effects
+    playSuccessSound();
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+    });
   };
 
   const lines = useMemo(() => {
